@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"regexp"
 
+	"github.com/gosimple/slug"
 	"github.com/tonytimo/Go-REST-API/recipes"
 )
 
@@ -62,8 +64,41 @@ func (h *RecipesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *RecipesHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) {}
-func (h *RecipesHandler) ListRecipes(w http.ResponseWriter, r *http.Request)  {}
+func (h *RecipesHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) {
+	var recipe recipes.Recipe
+	err := json.NewDecoder(r.Body).Decode(&recipe)
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+
+	// Convert the name of the recipe into URL friendly string
+	resourceID := slug.Make(recipe.Name)
+	// Call the store to add the recipe
+	if err := h.store.Add(resourceID, recipe); err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+
+	// Set the status code to 200
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *RecipesHandler) ListRecipes(w http.ResponseWriter, r *http.Request) {
+	recipes, err := h.store.List()
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+	jsonBytes, err := json.Marshal(recipes)
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
+	// Set the status code to 200
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
+}
 func (h *RecipesHandler) GetRecipe(w http.ResponseWriter, r *http.Request)    {}
 func (h *RecipesHandler) UpdateRecipe(w http.ResponseWriter, r *http.Request) {}
 func (h *RecipesHandler) DeleteRecipe(w http.ResponseWriter, r *http.Request) {}
